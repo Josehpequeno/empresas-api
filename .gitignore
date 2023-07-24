@@ -1,0 +1,13 @@
+Include/
+Lib/
+media/
+__pycache__/
+Scripts/
+pyvenv.cfg
+db.sqlite3
+# Linux
+include/
+lib/
+lib64/
+bin/
+lib64

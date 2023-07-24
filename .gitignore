@@ -11,7 +11,7 @@ lib/
 lib64/
 bin/
 lib64
-
+.vscode
 #companys.db
 companys.db
 src/companys.db

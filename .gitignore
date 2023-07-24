@@ -12,6 +12,7 @@ lib64/
 bin/
 lib64
 .vscode
+src/__pycache__/
 #companys.db
 companys.db
 src/companys.db

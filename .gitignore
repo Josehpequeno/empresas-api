@@ -11,3 +11,7 @@ lib/
 lib64/
 bin/
 lib64
+
+#companys.db
+companys.db
+src/companys.db

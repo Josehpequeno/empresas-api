@@ -1,12 +1,12 @@
 import sqlite3
-
-
+from datetime import datetime
+import uuid
 class InsertCompanyError(Exception):
     pass
 
 
 def get_db_connection():
-    conn = sqlite3.connect("companys.db")
+    conn = sqlite3.connect("companies.db")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -15,13 +15,15 @@ def create_table_company():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    create_company_table = """ 
-    CREATE TABLE IF NOT EXISTS companys (
-            id INTEGER PRIMARY KEY,
+    create_company_table = f""" 
+    CREATE TABLE IF NOT EXISTS companies (
+            uuid VARCHAR(36) PRIMARY KEY,
             cnpj TEXT NOT NULL,
             nomerazao TEXT NOT NULL,
             nomefantasia TEXT NOT NULL,
-            cnae TEXT NOT NULL
+            cnae TEXT NOT NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL 
         )  
   """
 
@@ -31,22 +33,26 @@ def create_table_company():
     conn.close()
 
 
-def list_companys():
+def list_companies(start, limit, sort, sort_dir):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM companys")
-    companys = cursor.fetchall()
+    query  = f"SELECT * FROM companies ORDER BY {sort} {sort_dir}" 
+
+    if limit is not None: 
+        query += f" LIMIT {int(limit)} OFFSET {start}"
+    
+    cursor.execute(query)
+    companies = cursor.fetchall()
     conn.close()
-    return companys
+    return companies
 
 
 def save_company(cnpj, nomerazao, nomefantasia, cnae):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-
-        query = "INSERT INTO companys (cnpj, nomerazao, nomefantasia, cnae) VALUES (?, ?, ?, ?)"
-        cursor.execute(query, (cnpj, nomerazao, nomefantasia, cnae))
+        query = "INSERT INTO companies (uuid, cnpj, nomerazao, nomefantasia, cnae, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        cursor.execute(query, (str(uuid.uuid4()), cnpj, nomerazao, nomefantasia, cnae, datetime.now(), datetime.now() ))
         conn.commit()
         conn.close()
     except sqlite3.Error as e:

@@ -1,13 +1,14 @@
 from flask import Flask
-from database import create_table_company
+from .database import create_table_company
 
-app = Flask(__name__)
+def create_app():
+  app = Flask(__name__)
 
-# app.config.from_pyfile('src/config.py')
+  create_table_company()
 
-create_table_company()
+  from .controller import companies
 
-from controller import *
+  app.register_blueprint(companies)
 
-if __name__ == '__main__':
-  app.run()
+  return app
+  

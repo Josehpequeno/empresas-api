@@ -1,36 +1,67 @@
-from app import app
-from database import get_db_connection, list_companys, save_company
-from flask import request, jsonify
+from .database import get_db_connection, list_companies, save_company
+from flask import request, jsonify, Blueprint
 
+companies = Blueprint("companies",__name__)
 
-@app.route("/companys")
+@companies.route("/companies", methods=['GET'])
 def list():
-    companys = list_companys()
-    print("companys:", companys)
+    start = int(request.args.get('start', default=0))
+    limit = request.args.get('limit', default=10)
+    sort = request.args.get('sort', default='uuid')
+    sort_dir = request.args.get('dir', default='asc').upper()
+    
+    if sort not in ('uuid', 'cnpj', 'nomerazao', 'nomefantasia', 'cnae', 'created_at', 'updated_at'):
+        return jsonify({'error': 'Campo selecinado para ordenação inválida. Escolha id, cnpj, nomerazao, nomefantasia ou cnae.'})
+    
+    if sort_dir not in ('ASC', 'DESC'):
+        return jsonify({'error': 'Ordem de ordenação inválida. Use "asc" ou "desc".'}), 400
+    companies = list_companies(start, limit, sort, sort_dir)
     response = {
-        "companys": [
+        "count": len(companies),
+        "start": start,
+        "limit": limit,
+        "sort": sort,
+        "dir": sort_dir,
+        "companies": [
             {
-                "id": company["id"],
+                "uuid": company["uuid"],
                 "cnpj": company["cnpj"],
                 "nomerazao": company["nomerazao"],
                 "nomefantasia": company["nomefantasia"],
-                "cnae": company["cnae"]
+                "cnae": company["cnae"],
+                "created_at": company["created_at"],
+                "updated_at": company["updated_at"]
             }
-            for company in companys
-        ]
+            for company in companies
+        ],
     }
     return response, 200
 
 
-@app.route("/create_company", methods=["POST"])
+@companies.route("/create_company", methods=["POST"])
 def create_company():
     try:
         data = request.get_json()
 
-        cnpj = data["cnpj"]
-        nomerazao = data["nomerazao"]
-        nomefantasia = data["nomefantasia"]
-        cnae = data["cnae"]
+        cnpj = data.get("cnpj")
+        nomerazao = data.get("nomerazao")
+        nomefantasia = data.get("nomefantasia")
+        cnae = data.get("cnae")
+
+        error_message = []
+        
+        if not cnpj:
+            error_message.append("cnpj")
+        if not nomefantasia:
+            error_message.append("nomefantasia")
+        if not nomerazao:
+            error_message.append("nomerazao")
+        if not cnae: 
+            error_message.append("cnae")
+
+        if len(error_message) > 0:
+             raise KeyError()
+           
 
         save_company(cnpj, nomerazao, nomefantasia, cnae)
 
@@ -40,7 +71,7 @@ def create_company():
         return (
             jsonify(
                 {
-                    "error": "Conteúdo inválido. Veja se os campos cnpj, nomerazao, nomefantasia e cnae foram preenchidos."
+                    "error": f"Conteúdo inválido. Os campos são obrigatórios: {', '.join(error_message)}"
                 }
             ),
             400,

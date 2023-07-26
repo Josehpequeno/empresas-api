@@ -26,7 +26,7 @@ python src/app.py
 
 [x] validação 
 
-[ ] swagger
+[x] swagger
 
 [x] encontrar empresa pelo uuid
 

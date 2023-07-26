@@ -1,16 +1,17 @@
 from flask import Flask
-from .database import create_table_company
+from .companies.database import create_table_company
+from flask_restx import Api, Resource, fields, Namespace
+from .companies.routes import init_routes
+
 
 def create_app():
-  app = Flask(__name__)
+    app = Flask(__name__)
+    create_table_company()
 
-  create_table_company()
+    api = Api(
+        app, version="1.0", title="Companies API", description="A companies CRUD API"
+    )
 
-  from .controller import companies, api_bp, swagger_ui_blueprint, SWAGGER_URL
+    init_routes(app, api)
 
-  app.register_blueprint(companies)
-  app.register_blueprint(api_bp)
-  app.register_blueprint(swagger_ui_blueprint, url_prefix=SWAGGER_URL)
-
-  return app
-  
+    return app

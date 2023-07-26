@@ -7,13 +7,13 @@ from .database import (
     delete_company,
 )
 from flask import request, Blueprint
-from flask_restx import Api, Resource, Namespace, fields, reqparse, marshal_with
+from flask_restx import Api, Resource, Namespace, fields, marshal_with
 from flask_swagger_ui import get_swaggerui_blueprint
 from .config import SWAGGER_URL, API_URL
-
+from .validates import is_valid_cnpj, is_valid_cnae, is_not_empty
 
 swagger_ui_blueprint = get_swaggerui_blueprint(
-    SWAGGER_URL, API_URL, config={"app_name": "Your API Documentation"}
+    SWAGGER_URL, API_URL, config={"app_name": "API Documentation"}
 )
 
 companies_routes = Namespace("companies", description="Companies operations")
@@ -21,7 +21,7 @@ companies_routes = Namespace("companies", description="Companies operations")
 company_routes = Namespace("company", description="Company operations")
 
 
-company_model_schema = {
+company_schema = {
     "uuid": fields.String(readonly=True, description="The company identifier"),
     "nomerazao": fields.String(required=True, description="The company nomerazao"),
     "nomefantasia": fields.String(required=True, description="The company fantasia"),
@@ -42,20 +42,25 @@ company_body_schema = {
     "cnae": fields.String(required=True, description="The company cnae"),
 }
 
-company_message_schema = {
+company_body_patch_schema = {
+    "nomefantasia": fields.String(required=False, description="The company fantasia"),
+    "cnae": fields.String(required=False, description="The company cnae"),
+}
+
+message_schema = {
     "message": fields.String(readonly=True, description="Content of message")
 }
 
-company_error_schema = {
+error_schema = {
     "error": fields.String(readonly=True, description="Content of error message")
 }
 
 
-companies_model = companies_routes.model("companies_model", company_model_schema)
+company_model_for_companies = companies_routes.model("company_model", company_schema)
 
 companies_list_response_schema = {
     "companies": fields.List(
-        fields.Nested(companies_model), description="List of companies"
+        fields.Nested(company_model_for_companies), description="List of companies"
     ),
     "count": fields.Integer(readonly=True, description="The companies count"),
     "start": fields.Integer(readonly=True, description="The companies start"),
@@ -68,28 +73,17 @@ companies_list_response = companies_routes.model(
     "companies_response", companies_list_response_schema
 )
 
-company_model_body = company_routes.model("company_body", company_body_schema)
+companies_error = companies_routes.model("companies_error", error_schema)
 
-company_model = company_routes.model("company_response", company_model_schema)
+company_body = company_routes.model("company_body", company_body_schema)
 
-company_message_model = company_routes.model("company_message", company_message_schema)
+company_body_patch = company_routes.model("company_body_pacth", company_body_patch_schema)
 
-company_error_model = company_routes.model("company_error", company_error_schema)
+company_response = company_routes.model("company_response", company_schema)
 
+company_message = company_routes.model("company_message", message_schema)
 
-pagination_parser = reqparse.RequestParser()
-pagination_parser.add_argument(
-    "start", type=int, required=False, default=0, help="Start index for pagination"
-)
-pagination_parser.add_argument(
-    "limit", type=int, required=False, default=10, help="Number of items per page"
-)
-pagination_parser.add_argument(
-    "sort", type=str, required=False, default="uuid", help="Selected ordem"
-)
-pagination_parser.add_argument(
-    "dir", type=str, required=False, default="asc", help="Selected ordem direction"
-)
+company_error = company_routes.model("company_error", error_schema)
 
 
 @companies_routes.route("/")
@@ -102,7 +96,8 @@ class CompaniesController(Resource):
             "dir": "Sort direction",
         }
     )
-    @companies_routes.response(200, "Success", companies_list_response)
+    @companies_routes.response(200, "Success response", companies_list_response)
+    @companies_routes.response(400, "Failure response", companies_error)
     def get(self):
         start = int(request.args.get("start", default=0))
         limit = request.args.get("limit", default=10)
@@ -150,10 +145,10 @@ class CompaniesController(Resource):
 
 @company_routes.route("/")
 class CompanyController(Resource):
-    @company_routes.expect(company_model_body)
-    @company_routes.response(201, "Company created successfully", company_message_model)
-    @company_routes.response(400, "Conteúdo inválido", company_message_model)
-    @company_routes.response(500, "Erro interno", company_error_model)
+    @company_routes.expect(company_body)
+    @company_routes.response(201, "Success response", company_message)
+    @company_routes.response(400, "Failure response", company_error)
+    @company_routes.response(500, "Internal error", company_error)
     def post(self):
         try:
             data = request.get_json()
@@ -176,6 +171,11 @@ class CompanyController(Resource):
             if len(error_message) > 0:
                 raise KeyError()
 
+            if not is_valid_cnpj(cnpj):
+                return {"message": "cnpj inválido"}, 400
+            if not is_valid_cnae(cnae):
+                return {"message": "cnae inválido"}, 400
+
             save_company(cnpj, nomerazao, nomefantasia, cnae)
 
             return {"message": "Empresa criada com sucesso!"}, 201
@@ -192,48 +192,14 @@ class CompanyController(Resource):
 
 @company_routes.route("/<string:company_uuid>")
 class CompanyUuidController(Resource):
-    @company_routes.response(200, "Company updated successfully", company_message_model)
-    @company_routes.response(400, "Conteúdo inválido", company_message_model)
-    @company_routes.response(404, "Empresa não encontrada", company_message_model)
-    @company_routes.response(500, "Erro interno", company_error_model)
-    def patch(self, company_uuid):
-        try:
-            data = request.get_json()
-
-            nomefantasia = data.get("nomefantasia")
-            cnae = data.get("cnae")
-
-            error_message = []
-
-            if not nomefantasia and not cnae:
-                error_message.append("nomefantasia")
-                error_message.append("cnae")
-                raise KeyError()
-
-            rows_affected = update_company(company_uuid, nomefantasia, cnae)
-
-            if rows_affected == 0:
-                response = {"message": "Empresa não encontrada!"}
-                return response, 404
-
-            response = {"message": "Empresa atualizada com sucesso!"}
-            return response, 200
-        except KeyError:
-            return {
-                "error": f"Conteúdo inválido. Os campos são obrigatórios: {', '.join(error_message)}"
-            }, 400
-
-        except Exception as e:
-            return {"error": str(e)}, 500
-
-    @company_routes.response(200, "Company updated successfully", company_model)
-    @company_routes.response(404, "Empresa não encontrada", company_message_model)
-    @company_routes.response(500, "Erro interno", company_error_model)
+    @company_routes.response(200, "Success response", company_response)
+    @company_routes.response(404, "Failure response. Not Found", company_error)
+    @company_routes.response(500, "Internal error", company_error)
     def get(self, company_uuid):
         try:
             company = find_company(company_uuid)
             if not company:
-                response = {"message": "Empresa não encontrada"}
+                response = {"error": "Empresa não encontrada"}
                 return response, 404
             response = {
                 "uuid": company["uuid"],
@@ -248,17 +214,60 @@ class CompanyUuidController(Resource):
         except Exception as e:
             return {"error": str(e)}, 500
 
+    @company_routes.expect(company_body_patch)
+    @company_routes.response(200, "Success response", company_message)
+    @company_routes.response(400, "Failure response. Invalid content", company_error)
+    @company_routes.response(404, "Failure response. Not Found", company_error)
+    @company_routes.response(500, "Internal error", company_error)
+    def patch(self, company_uuid):
+        try:
+            data = request.get_json()
 
-@company_routes.route("/<string:company_cnpj>")
+            nomefantasia = data.get("nomefantasia")
+            cnae = data.get("cnae")
+
+            error_message = []
+
+            if not nomefantasia and not cnae:
+                error_message.append("nomefantasia")
+                error_message.append("cnae")
+                raise KeyError()
+
+            if (cnae is not None) and (not is_valid_cnae(cnae)):
+                return {"message": "cnae inválido"}, 400
+            if (nomefantasia is not None) and (not is_not_empty(nomefantasia)):
+                return {"message": "nomefantasia inválido"}, 400
+
+            rows_affected = update_company(company_uuid, nomefantasia, cnae)
+
+            if rows_affected == 0:
+                response = {"error": "Empresa não encontrada!"}
+                return response, 404
+
+            response = {"message": "Empresa atualizada com sucesso!"}
+            return response, 200
+        except KeyError:
+            return {
+                "error": f"Conteúdo inválido. Deve conter pelo menos um dos campos: {', '.join(error_message)}"
+            }, 400
+
+        except Exception as e:
+            return {"error": str(e)}, 500
+
+
+# path para passar os formatos de cnpj com /
+@company_routes.route("/<path:company_cnpj>")
 class CompanyCnpjController(Resource):
-    @company_routes.response(200, "Company updated successfully", company_message_model)
-    @company_routes.response(404, "Empresa não encontrada", company_message_model)
-    @company_routes.response(500, "Erro interno", company_error_model)
+    @company_routes.response(200, "Success response", company_message)
+    @company_routes.response(404, "Failure response. Not Found", company_error)
+    @company_routes.response(500, "Internal error", company_error)
     def delete(self, company_cnpj):
         try:
+            if not is_valid_cnpj(company_cnpj):
+                return {"message": "cnpj inválido"}, 400
             rows_affected = delete_company(company_cnpj)
             if rows_affected == 0:
-                response = {"message": "Empresa não encontrada!"}
+                response = {"error": "Empresa não encontrada!"}
                 return response, 404
             response = {"message": "Empresa removida com sucesso!"}
             return response, 200

@@ -7,7 +7,13 @@ python -m venv .
 
 source bin/activate
 
-python src/app.py
+export FLASK_APP=src/app.py
+
+export FLASK_ENV=Development
+
+export FLASK_DEBUG=True
+
+flask run
 
 ```
 
@@ -31,4 +37,4 @@ python src/app.py
 [x] encontrar empresa pelo uuid
 
 #### opcional
-[ ] validação cnpj e cnae
+[x] validação cnpj e cnae

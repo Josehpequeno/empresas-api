@@ -12,6 +12,4 @@ lib64/
 bin/
 lib64
 .vscode
-#companies.db
 companies.db
-src/companies.db

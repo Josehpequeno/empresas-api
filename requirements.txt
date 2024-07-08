@@ -7,7 +7,7 @@ beautifulsoup4==4.12.2
 Brotli==1.0.9
 btrfsutil==6.3.2
 build==0.10.0
-certifi==2023.7.22
+certifi==2024.7.4
 cffi==1.15.1
 chardet==5.1.0
 click==8.1.5

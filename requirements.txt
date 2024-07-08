@@ -33,7 +33,7 @@ hatch-vcs==0.3.0
 hatchling==1.18.0
 httplib2==0.22.0
 hyperlink==21.0.0
-idna==3.4
+idna==3.7
 ifaddr==0.2.0
 importlib-metadata==5.0.0
 incremental==22.10.0

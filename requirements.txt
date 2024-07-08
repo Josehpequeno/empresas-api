@@ -83,7 +83,7 @@ pyasn1==0.4.8
 pyasn1-modules==0.2.8
 pycairo==1.23.0
 pycparser==2.21
-pydantic==1.10.9
+pydantic==1.10.13
 PyGObject==3.44.1
 pyjsparser==2.7.1
 pylibacl==0.6.0
